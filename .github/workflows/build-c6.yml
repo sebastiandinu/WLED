@@ -1,0 +1,27 @@
+name: Build C6
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pip install platformio esptool
+      - run: pio run -e esp32c6dev_4MB
+      - name: Make single flashable image
+        run: |
+          cd .pio/build/esp32c6dev_4MB
+          BOOT=$(find ~/.platformio/packages -name boot_app0.bin | head -n1)
+          python -m esptool --chip esp32c6 merge_bin -o c6-factory.bin --flash_size 4MB 0x0 bootloader.bin 0x8000 partitions.bin 0xe000 "$BOOT" 0x10000 firmware.bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wled-c6
+          path: |
+            .pio/build/esp32c6dev_4MB/c6-factory.bin
+            .pio/build/esp32c6dev_4MB/firmware.bin
+            build_output/
