@@ -12,16 +12,24 @@ jobs:
         with:
           node-version: 20
       - run: pip install platformio esptool
-      - run: pio run -e esp32c6dev_4MB
-      - name: Make single flashable image
+      - name: XIAO override
         run: |
-          cd .pio/build/esp32c6dev_4MB
+          cat > platformio_override.ini << 'EOF'
+          [env:xiao_c6]
+          extends = env:esp32c6dev_4MB
+          build_flags = ${env:esp32c6dev_4MB.build_flags}
+            -DARDUINO_USB_CDC_ON_BOOT=1
+          EOF
+      - run: pio run -e xiao_c6
+      - name: Collect flash files
+        run: |
+          mkdir out
+          cd .pio/build/xiao_c6
           BOOT=$(find ~/.platformio/packages -name boot_app0.bin | head -n1)
-          python -m esptool --chip esp32c6 merge_bin -o c6-factory.bin --flash_size 4MB 0x0 bootloader.bin 0x8000 partitions.bin 0xe000 "$BOOT" 0x10000 firmware.bin
+          cp bootloader.bin partitions.bin firmware.bin ../../../out/
+          cp "$BOOT" ../../../out/boot_app0.bin
+          python -m esptool --chip esp32c6 merge_bin -o ../../../out/c6-factory.bin --flash_size 4MB 0x0 bootloader.bin 0x8000 partitions.bin 0xe000 "$BOOT" 0x10000 firmware.bin
       - uses: actions/upload-artifact@v4
         with:
-          name: wled-c6
-          path: |
-            .pio/build/esp32c6dev_4MB/c6-factory.bin
-            .pio/build/esp32c6dev_4MB/firmware.bin
-            build_output/
+          name: wled-xiao-c6
+          path: out/
